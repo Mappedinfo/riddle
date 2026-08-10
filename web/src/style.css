@@ -148,9 +148,19 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
 .primary-button { border: 1px solid var(--ink); color: #f4ecdc; background: var(--ink); }
 .secondary-button { border: 1px solid rgba(49,39,29,.32); background: transparent; }
 .danger-button { margin-right: auto; border: 1px solid rgba(126,47,43,.35); color: var(--red); background: transparent; }
-.memory-sheet { width: min(680px, calc(100% - 32px)); }
-.memory-list { max-height: 52dvh; margin-top: 18px; overflow: auto; border-top: 1px solid rgba(75,57,38,.18); }
-.memory-list article { padding: 18px 4px; border-bottom: 1px solid rgba(75,57,38,.16); }
+.memory-sheet { width: min(900px, calc(100% - 32px)); }
+.conversation-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 18px 0 12px; padding: 12px 14px; border: 1px solid rgba(75,57,38,.16); background: rgba(181,137,78,.07); }
+.conversation-toolbar div { display: grid; gap: 3px; }
+.conversation-toolbar small { color: #8d7c69; text-transform: uppercase; letter-spacing: .1em; }
+.conversation-toolbar button { min-height: 38px; padding: 0 14px; }
+.conversation-layout { min-height: 330px; display: grid; grid-template-columns: minmax(170px, 30%) 1fr; border-top: 1px solid rgba(75,57,38,.18); border-bottom: 1px solid rgba(75,57,38,.18); }
+.conversation-list { padding: 10px 10px 10px 0; overflow: auto; border-right: 1px solid rgba(75,57,38,.16); }
+.conversation-list button { width: 100%; display: grid; gap: 4px; padding: 11px 12px; border: 0; border-left: 2px solid transparent; color: #625446; background: transparent; text-align: left; cursor: pointer; }
+.conversation-list button.active { border-left-color: var(--red); color: var(--ink); background: rgba(126,47,43,.07); }
+.conversation-list small { color: #938372; }
+.memory-list { max-height: 52dvh; overflow: auto; padding-left: 16px; }
+.memory-list article { padding: 18px 6px; border-bottom: 1px solid rgba(75,57,38,.16); cursor: pointer; }
+.memory-list article:hover { background: rgba(181,137,78,.06); }
 .memory-list time { color: var(--red); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
 .memory-list h3 { margin: 7px 0 6px; font-size: 16px; font-weight: 600; }
 .memory-list p { margin: 0; font-family: var(--reply-font); color: #514438; font-size: 25px; }
@@ -175,6 +185,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
   .tool-button .tool-icon { display: none; }
   .reply-panel { left: 4%; right: 4%; bottom: 70px; }
   .reply-panel.inline { left: 8%; right: 3%; }
+  .memory-sheet { padding: 20px; }
+  .conversation-layout { grid-template-columns: 1fr; }
+  .conversation-list { max-height: 120px; display: flex; gap: 5px; padding: 8px 0; border-right: 0; border-bottom: 1px solid rgba(75,57,38,.16); }
+  .conversation-list button { min-width: 160px; }
+  .memory-list { padding-left: 0; }
 }
 
 @media (max-height: 650px) and (orientation: landscape) {

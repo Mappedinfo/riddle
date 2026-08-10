@@ -73,7 +73,9 @@
           <label>Vision model<input id="modelInput" type="text" placeholder="gpt-4o-mini" required /></label>
           <label class="switch-row"><span><strong>Submit after resting the pen</strong><small>Wait 2.8 seconds after the final stroke</small></span><input id="autoSubmitInput" type="checkbox" checked /></label>
           <label class="switch-row"><span><strong>Let the ink disappear</strong><small>Fade submitted handwriting before the reply</small></span><input id="fadeInkInput" type="checkbox" checked /></label>
-          <label class="switch-row"><span><strong>Write directly on the page</strong><small>Remove the reply card and place the answer below your ink</small></span><input id="inlineReplyInput" type="checkbox" checked /></label>
+          <label class="switch-row"><span><strong>Write directly on the page</strong><small>Remove the reply card and begin the answer near the top</small></span><input id="inlineReplyInput" type="checkbox" checked /></label>
+          <label class="switch-row"><span><strong>Memory mode</strong><small>Remember pages and include this conversation in future replies</small></span><input id="memoryEnabledInput" type="checkbox" checked /></label>
+          <label class="font-row"><span>Context window</span><select id="contextLimitInput"><option value="4">Last 4 turns</option><option value="8" selected>Last 8 turns</option><option value="16">Last 16 turns</option><option value="32">Last 32 turns</option></select></label>
           <label class="font-row"><span>Reply font</span><select id="replyFontInput"><option value="script">Dancing Script</option><option value="comic">Comic Neue</option><option value="book">Book serif</option><option value="typewriter">Typewriter</option></select></label>
           <p class="security-note">For personal use only: a browser-held API key can be inspected by anyone with access to this device. Production deployments should use a server-side proxy.</p>
           <div class="sheet-actions"><button class="secondary-button" value="cancel">Cancel</button><button id="saveSettingsButton" class="primary-button" value="default">Save settings</button></div>
@@ -90,9 +92,10 @@
       </dialog>
 
       <dialog id="memoryDialog" class="sheet memory-sheet">
-        <div class="sheet-heading"><div><p class="eyebrow">Kept on this device</p><h2>Remembered pages</h2></div><button class="close-button" data-close-memory aria-label="Close">×</button></div>
-        <div id="memoryList" class="memory-list"></div>
-        <div class="sheet-actions"><button id="forgetButton" class="danger-button" type="button">Forget everything</button><button class="secondary-button" data-close-memory type="button">Done</button></div>
+        <div class="sheet-heading"><div><p class="eyebrow">Kept on this device</p><h2>Conversations</h2></div><button class="close-button" data-close-memory aria-label="Close">×</button></div>
+        <div class="conversation-toolbar"><div><small>Current conversation</small><strong id="activeConversationName">First conversation</strong></div><button id="newConversationButton" class="primary-button" type="button">New conversation</button></div>
+        <div class="conversation-layout"><nav id="conversationList" class="conversation-list" aria-label="Saved conversations"></nav><div id="memoryList" class="memory-list"></div></div>
+        <div class="sheet-actions"><button id="deleteConversationButton" class="danger-button" type="button">Delete conversation</button><button id="forgetButton" class="secondary-button" type="button">Forget all pages</button><button class="secondary-button" data-close-memory type="button">Done</button></div>
       </dialog>
 
       <div id="toast" class="toast" role="status"></div>

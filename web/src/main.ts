@@ -33,6 +33,14 @@ interface DiaryEntry {
   transcript: string;
   reply: string;
   strokes: Stroke[];
+  conversationId?: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface OracleSettings {
@@ -43,6 +51,8 @@ interface OracleSettings {
   fadeInk: boolean;
   inlineReply: boolean;
   replyFont: ReplyFont;
+  memoryEnabled: boolean;
+  contextLimit: number;
 }
 
 interface OracleAnswer {
@@ -78,14 +88,18 @@ const clearButton = $("#clearButton") as HTMLButtonElement;
 const settingsDialog = $("#settingsDialog") as HTMLDialogElement;
 const memoryDialog = $("#memoryDialog") as HTMLDialogElement;
 const memoryList = $("#memoryList") as HTMLElement;
+const conversationList = $("#conversationList") as HTMLElement;
+const activeConversationName = $("#activeConversationName") as HTMLElement;
 const memoryCount = $("#memoryCount") as HTMLElement;
 const toast = $("#toast") as HTMLElement;
 const installButton = $("#installButton") as HTMLButtonElement;
 
 const SETTINGS_KEY = "riddle.web.settings.v1";
 const DB_NAME = "riddle-web";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const DRAFT_KEY = "current-page";
+const ACTIVE_CONVERSATION_KEY = "riddle.web.active-conversation.v1";
+const DEFAULT_CONVERSATION_ID = "first-conversation";
 const IDLE_DELAY = 2800;
 const MAX_MEMORIES = 400;
 
@@ -101,7 +115,7 @@ let installPrompt: InstallPromptEvent | null = null;
 let settings = loadSettings();
 let drawingRevision = 0;
 let committedRevision = 0;
-let lastReplyStrokes: Stroke[] = [];
+let activeConversationId = DEFAULT_CONVERSATION_ID;
 const managedOracle = __MANAGED_ORACLE__;
 const oracleSupportsVision = __ORACLE_SUPPORTS_VISION__;
 
@@ -114,6 +128,8 @@ function loadSettings(): OracleSettings {
     fadeInk: true,
     inlineReply: true,
     replyFont: "script",
+    memoryEnabled: true,
+    contextLimit: 8,
   };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
@@ -129,13 +145,14 @@ function openDatabase(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains("entries")) db.createObjectStore("entries", { keyPath: "id" });
       if (!db.objectStoreNames.contains("drafts")) db.createObjectStore("drafts");
+      if (!db.objectStoreNames.contains("conversations")) db.createObjectStore("conversations", { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function idbRequest<T>(storeName: "entries" | "drafts", mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+async function idbRequest<T>(storeName: "entries" | "drafts" | "conversations", mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, mode);
@@ -147,21 +164,54 @@ async function idbRequest<T>(storeName: "entries" | "drafts", mode: IDBTransacti
 }
 
 async function saveDraft(): Promise<void> {
-  await idbRequest("drafts", "readwrite", (store) => store.put(strokes, DRAFT_KEY));
+  await idbRequest("drafts", "readwrite", (store) => store.put(strokes, `page:${activeConversationId}`));
 }
 
-async function loadDraft(): Promise<Stroke[]> {
-  return (await idbRequest("drafts", "readonly", (store) => store.get(DRAFT_KEY))) || [];
+async function loadDraft(conversationId = activeConversationId): Promise<Stroke[]> {
+  const current = await idbRequest<Stroke[]>("drafts", "readonly", (store) => store.get(`page:${conversationId}`));
+  if (current) return current;
+  if (conversationId === DEFAULT_CONVERSATION_ID) return (await idbRequest("drafts", "readonly", (store) => store.get(DRAFT_KEY))) || [];
+  return [];
 }
 
-async function loadEntries(): Promise<DiaryEntry[]> {
+async function loadAllEntries(): Promise<DiaryEntry[]> {
   const entries = await idbRequest<DiaryEntry[]>("entries", "readonly", (store) => store.getAll());
   return entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+async function loadEntries(conversationId = activeConversationId): Promise<DiaryEntry[]> {
+  return (await loadAllEntries()).filter((entry) => (entry.conversationId || DEFAULT_CONVERSATION_ID) === conversationId);
+}
+
+async function loadConversations(): Promise<Conversation[]> {
+  const conversations = await idbRequest<Conversation[]>("conversations", "readonly", (store) => store.getAll());
+  return conversations.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+async function saveConversation(conversation: Conversation): Promise<void> {
+  await idbRequest("conversations", "readwrite", (store) => store.put(conversation));
+}
+
+async function ensureConversationState(): Promise<void> {
+  let conversations = await loadConversations();
+  if (!conversations.length) {
+    const now = new Date().toISOString();
+    const first: Conversation = { id: DEFAULT_CONVERSATION_ID, title: "First conversation", createdAt: now, updatedAt: now };
+    await saveConversation(first);
+    conversations = [first];
+  }
+  const fallback = conversations.find((conversation) => conversation.id === DEFAULT_CONVERSATION_ID) || conversations[0];
+  for (const entry of await loadAllEntries()) {
+    if (!entry.conversationId) await idbRequest("entries", "readwrite", (store) => store.put({ ...entry, conversationId: fallback.id }));
+  }
+  const requested = localStorage.getItem(ACTIVE_CONVERSATION_KEY);
+  activeConversationId = conversations.some((conversation) => conversation.id === requested) ? requested! : fallback.id;
+  localStorage.setItem(ACTIVE_CONVERSATION_KEY, activeConversationId);
+}
+
 async function saveEntry(entry: DiaryEntry): Promise<void> {
   await idbRequest("entries", "readwrite", (store) => store.put(entry));
-  const entries = await loadEntries();
+  const entries = await loadAllEntries();
   for (const old of entries.slice(MAX_MEMORIES)) {
     await idbRequest("entries", "readwrite", (store) => store.delete(old.id));
   }
@@ -169,6 +219,69 @@ async function saveEntry(entry: DiaryEntry): Promise<void> {
 
 async function clearEntries(): Promise<void> {
   await idbRequest("entries", "readwrite", (store) => store.clear());
+  await idbRequest("drafts", "readwrite", (store) => store.clear());
+}
+
+async function touchActiveConversation(transcript: string): Promise<void> {
+  const conversations = await loadConversations();
+  const conversation = conversations.find((item) => item.id === activeConversationId);
+  if (!conversation) return;
+  const title = conversation.title === "New conversation"
+    ? transcript.replace(/\s+/g, " ").trim().slice(0, 44) || "Handwritten page"
+    : conversation.title;
+  await saveConversation({ ...conversation, title, updatedAt: new Date().toISOString() });
+}
+
+async function createConversation(): Promise<void> {
+  await saveDraft();
+  const now = new Date().toISOString();
+  const conversation: Conversation = { id: crypto.randomUUID(), title: "New conversation", createdAt: now, updatedAt: now };
+  await saveConversation(conversation);
+  await activateConversation(conversation.id);
+}
+
+async function activateConversation(conversationId: string): Promise<void> {
+  window.clearTimeout(idleTimer);
+  activeConversationId = conversationId;
+  localStorage.setItem(ACTIVE_CONVERSATION_KEY, conversationId);
+  const entries = await loadEntries(conversationId);
+  const draft = await loadDraft(conversationId);
+  strokes = structuredClone(draft.length ? draft : entries[0]?.strokes || []);
+  drawingRevision += 1;
+  committedRevision = drawingRevision;
+  renderInk();
+  if (entries[0]) revealReply(entries[0].reply);
+  else hideReply();
+  await refreshMemory();
+  pageStatus.textContent = entries.length ? "A remembered conversation has returned." : "A new conversation is waiting.";
+}
+
+async function deleteActiveConversation(): Promise<void> {
+  const conversations = await loadConversations();
+  const active = conversations.find((conversation) => conversation.id === activeConversationId);
+  if (!active || !window.confirm(`Delete “${active.title}” and all of its pages?`)) return;
+  for (const entry of await loadEntries(activeConversationId)) {
+    await idbRequest("entries", "readwrite", (store) => store.delete(entry.id));
+  }
+  await idbRequest("drafts", "readwrite", (store) => store.delete(`page:${activeConversationId}`));
+  await idbRequest("conversations", "readwrite", (store) => store.delete(activeConversationId));
+  const remaining = await loadConversations();
+  if (remaining[0]) await activateConversation(remaining[0].id);
+  else {
+    strokes = [];
+    await createConversation();
+  }
+}
+
+async function restoreEntry(entry: DiaryEntry): Promise<void> {
+  strokes = structuredClone(entry.strokes);
+  drawingRevision += 1;
+  committedRevision = drawingRevision;
+  renderInk();
+  revealReply(entry.reply);
+  await saveDraft();
+  memoryDialog.close();
+  pageStatus.textContent = "A previous page has returned. Continue writing when ready.";
 }
 
 function resizeCanvas(): void {
@@ -329,7 +442,7 @@ function exportPage(source: Stroke[]): string {
 async function askOracle(imageUrl: string, confirmedTranscript: string): Promise<OracleAnswer> {
   if (!managedOracle && !settings.apiKey.trim()) throw new Error("Open settings and add an API key before asking the diary.");
   if (!navigator.onLine) throw new Error("The page is safe offline. Reconnect before asking the oracle.");
-  const entries = (await loadEntries()).slice(0, 8).reverse();
+  const entries = settings.memoryEnabled ? (await loadEntries()).slice(0, settings.contextLimit).reverse() : [];
   const memory = entries.length
     ? entries.map((entry) => `Writer: ${entry.transcript}\nDiary: ${entry.reply}`).join("\n\n")
     : "No earlier pages.";
@@ -337,7 +450,7 @@ async function askOracle(imageUrl: string, confirmedTranscript: string): Promise
     "You are Tom Riddle's diary. Answer briefly, warmly, and a little mysteriously.",
     oracleSupportsVision ? "Read the attached handwritten page as the source of truth. Do not mention being an AI or describe the image." : `The writer transcribed their handwritten page as: ${confirmedTranscript}`,
     oracleSupportsVision ? "Return only strict JSON with two strings: transcript (a faithful transcription of the handwriting) and reply (your response, at most 90 words)." : "Return only strict JSON with one string: reply (your response, at most 90 words).",
-    `Recent locally remembered pages:\n${memory}`,
+    `Context from this conversation only:\n${memory}`,
   ].join("\n\n");
   const endpoint = managedOracle ? __ORACLE_ENDPOINT__ : `${settings.baseUrl.trim().replace(/\/+$/, "")}/chat/completions`;
   const requestContent = oracleSupportsVision
@@ -418,14 +531,17 @@ async function commitPage(): Promise<void> {
   }
   try {
     const answer = await askOracle(image, confirmedTranscript || "");
-    const entry: DiaryEntry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), transcript: answer.transcript, reply: answer.reply, strokes: committed };
-    await saveEntry(entry);
+    const entry: DiaryEntry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), transcript: answer.transcript, reply: answer.reply, strokes: committed, conversationId: activeConversationId };
+    if (settings.memoryEnabled) {
+      await saveEntry(entry);
+      await touchActiveConversation(answer.transcript);
+    }
     await saveDraft();
     await refreshMemory();
     committedRevision = submittedRevision;
     thinkingState.classList.remove("visible");
     pageStatus.textContent = "The diary has answered.";
-    revealReply(answer.reply, committed);
+    revealReply(answer.reply);
   } catch (error) {
     strokes = committed;
     renderInk();
@@ -440,9 +556,8 @@ async function commitPage(): Promise<void> {
   }
 }
 
-function revealReply(text: string, source: Stroke[]): void {
+function revealReply(text: string): void {
   window.clearInterval(revealTimer);
-  lastReplyStrokes = source;
   applyReplyPresentation();
   replyText.textContent = "";
   replyPanel.classList.add("visible");
@@ -470,9 +585,8 @@ function applyReplyPresentation(): void {
   };
   document.documentElement.style.setProperty("--reply-font", fonts[settings.replyFont]);
   replyPanel.classList.toggle("inline", settings.inlineReply);
-  if (settings.inlineReply && lastReplyStrokes.length) {
-    const lastInk = lastReplyStrokes.reduce((maximum, stroke) => stroke.points.reduce((strokeMaximum, point) => Math.max(strokeMaximum, point.y), maximum), 0);
-    replyPanel.style.top = `${Math.min(72, Math.max(34, 24 + lastInk * 54))}%`;
+  if (settings.inlineReply) {
+    replyPanel.style.top = "20%";
     replyPanel.style.bottom = "auto";
   } else {
     replyPanel.style.removeProperty("top");
@@ -481,8 +595,26 @@ function applyReplyPresentation(): void {
 }
 
 async function refreshMemory(): Promise<void> {
-  const entries = await loadEntries();
-  memoryCount.textContent = entries.length ? `${entries.length} remembered ${entries.length === 1 ? "page" : "pages"}` : "No memories yet";
+  const conversations = await loadConversations();
+  const allEntries = await loadAllEntries();
+  const entries = allEntries.filter((entry) => (entry.conversationId || DEFAULT_CONVERSATION_ID) === activeConversationId);
+  const active = conversations.find((conversation) => conversation.id === activeConversationId);
+  memoryCount.textContent = allEntries.length ? `${conversations.length} ${conversations.length === 1 ? "conversation" : "conversations"} · ${allEntries.length} pages` : "Memory is ready";
+  activeConversationName.textContent = active?.title || "Conversation";
+  conversationList.replaceChildren();
+  for (const conversation of conversations) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.toggle("active", conversation.id === activeConversationId);
+    const title = document.createElement("strong");
+    title.textContent = conversation.title;
+    const count = allEntries.filter((entry) => (entry.conversationId || DEFAULT_CONVERSATION_ID) === conversation.id).length;
+    const detail = document.createElement("small");
+    detail.textContent = `${count} ${count === 1 ? "page" : "pages"}`;
+    button.append(title, detail);
+    button.addEventListener("click", () => void activateConversation(conversation.id));
+    conversationList.append(button);
+  }
   memoryList.replaceChildren();
   if (!entries.length) {
     const empty = document.createElement("p");
@@ -493,6 +625,8 @@ async function refreshMemory(): Promise<void> {
   }
   for (const entry of entries) {
     const article = document.createElement("article");
+    article.tabIndex = 0;
+    article.setAttribute("role", "button");
     const date = document.createElement("time");
     date.dateTime = entry.createdAt;
     date.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(entry.createdAt));
@@ -501,6 +635,10 @@ async function refreshMemory(): Promise<void> {
     const reply = document.createElement("p");
     reply.textContent = entry.reply;
     article.append(date, transcript, reply);
+    article.addEventListener("click", () => void restoreEntry(entry));
+    article.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") void restoreEntry(entry);
+    });
     memoryList.append(article);
   }
 }
@@ -530,6 +668,8 @@ function populateSettings(): void {
   ($("#autoSubmitInput") as HTMLInputElement).checked = settings.autoSubmit;
   ($("#fadeInkInput") as HTMLInputElement).checked = settings.fadeInk;
   ($("#inlineReplyInput") as HTMLInputElement).checked = settings.inlineReply;
+  ($("#memoryEnabledInput") as HTMLInputElement).checked = settings.memoryEnabled;
+  ($("#contextLimitInput") as HTMLSelectElement).value = String(settings.contextLimit);
   ($("#replyFontInput") as HTMLSelectElement).value = settings.replyFont;
 }
 
@@ -542,6 +682,8 @@ function saveSettings(): void {
     fadeInk: ($("#fadeInkInput") as HTMLInputElement).checked,
     inlineReply: ($("#inlineReplyInput") as HTMLInputElement).checked,
     replyFont: ($("#replyFontInput") as HTMLSelectElement).value as ReplyFont,
+    memoryEnabled: ($("#memoryEnabledInput") as HTMLInputElement).checked,
+    contextLimit: Number(( $("#contextLimitInput") as HTMLSelectElement).value),
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   applyReplyPresentation();
@@ -606,10 +748,17 @@ function bindEvents(): void {
     settingsDialog.close();
   });
   $("#memoryButton").addEventListener("click", () => { void refreshMemory(); memoryDialog.showModal(); });
+  $("#newConversationButton").addEventListener("click", () => void createConversation());
+  $("#deleteConversationButton").addEventListener("click", () => void deleteActiveConversation());
   document.querySelectorAll<HTMLElement>("[data-close-memory]").forEach((button) => button.addEventListener("click", () => memoryDialog.close()));
   $("#forgetButton").addEventListener("click", async () => {
     if (!window.confirm("Forget every locally remembered page? This cannot be undone.")) return;
     await clearEntries();
+    strokes = [];
+    drawingRevision += 1;
+    committedRevision = drawingRevision;
+    renderInk();
+    hideReply();
     await refreshMemory();
     showToast("The diary has forgotten every finished page.");
   });
@@ -638,6 +787,7 @@ async function start(): Promise<void> {
   $("#dateLabel").textContent = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(now);
   bindEvents();
   updateConnection();
+  await ensureConversationState();
   strokes = await loadDraft().catch(() => []);
   committedRevision = drawingRevision;
   applyReplyPresentation();

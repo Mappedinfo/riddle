@@ -16,6 +16,8 @@ desktop browsers.
 - replies rendered directly on the paper or inside the original reply card;
 - switchable Script, Comic Neue, book, and typewriter reply faces;
 - local draft and up to 400 remembered pages in IndexedDB;
+- separate resumable conversations with new, switch, restore, and delete controls;
+- memory enabled by default with a configurable 4–32 turn context window;
 - installable PWA shell with offline access to saved pages.
 
 ## Run
