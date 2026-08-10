@@ -15,6 +15,7 @@
   --brass: #b5894e;
   --red: #7e2f2b;
   --line: rgba(81, 67, 51, 0.13);
+  --reply-font: "Dancing Script", cursive;
   font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -107,8 +108,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
 
 .reply-panel { position: absolute; left: 10%; right: 8%; bottom: 78px; display: flex; align-items: start; gap: 13px; padding: 20px 24px 19px; opacity: 0; transform: translateY(16px); border: 1px solid rgba(81,58,35,.2); background: rgba(239,230,208,.94); box-shadow: 0 14px 40px rgba(75,53,29,.18); pointer-events: none; transition: .45s ease; }
 .reply-panel.visible { opacity: 1; transform: translateY(0); }
+.reply-panel.inline { left: 11%; right: 7%; padding: 0 10px; border: 0; background: transparent; box-shadow: none; }
+.reply-panel.inline .reply-mark { margin-top: 7px; opacity: .72; }
 .reply-mark { color: var(--red); font-size: 22px; }
-.reply-panel p { margin: 0; font-family: "Dancing Script", cursive; font-size: clamp(23px, 3vw, 36px); line-height: 1.28; }
+.reply-panel p { margin: 0; font-family: var(--reply-font); font-size: clamp(23px, 3vw, 36px); line-height: 1.28; }
 .page-footer { min-height: 54px; display: flex; align-items: end; justify-content: space-between; gap: 16px; padding-top: 10px; border-top: 1px solid rgba(75,57,38,.18); }
 .tools { display: flex; align-items: center; gap: 4px; }
 .tool-button { min-height: 38px; padding: 0 11px; display: flex; align-items: center; gap: 7px; border: 0; border-radius: 3px; color: #675a4c; background: transparent; font-size: 12px; cursor: pointer; }
@@ -137,6 +140,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
 .switch-row span { display: grid; gap: 4px; }
 .switch-row small { color: #8d7c69; font-weight: 400; letter-spacing: 0; }
 .switch-row input { width: 42px; height: 22px; accent-color: var(--red); }
+.font-row { grid-template-columns: 1fr minmax(180px, 55%); align-items: center; padding: 4px 0 10px; }
+.sheet select { width: 100%; height: 44px; padding: 0 12px; border: 1px solid rgba(75,57,38,.28); border-radius: 2px; color: var(--ink); background: rgba(255,255,255,.43); }
 .security-note { padding: 12px; color: #755a3f; border-left: 2px solid var(--brass); background: rgba(181,137,78,.09); font-size: 11px; line-height: 1.45; }
 .sheet-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
 .sheet-actions button { min-height: 42px; padding: 0 17px; border-radius: 2px; cursor: pointer; }
@@ -148,7 +153,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
 .memory-list article { padding: 18px 4px; border-bottom: 1px solid rgba(75,57,38,.16); }
 .memory-list time { color: var(--red); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
 .memory-list h3 { margin: 7px 0 6px; font-size: 16px; font-weight: 600; }
-.memory-list p { margin: 0; font-family: "Dancing Script", cursive; color: #514438; font-size: 25px; }
+.memory-list p { margin: 0; font-family: var(--reply-font); color: #514438; font-size: 25px; }
 .memory-empty { padding: 50px 16px; color: #877766; text-align: center; font-style: italic; }
 .toast { position: fixed; z-index: 20; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); max-width: min(560px, calc(100% - 32px)); padding: 12px 17px; opacity: 0; transform: translate(-50%, 14px); border: 1px solid rgba(213,175,112,.3); border-radius: 999px; color: #eadfc9; background: rgba(26,20,15,.94); box-shadow: 0 12px 40px rgba(0,0,0,.35); font-size: 13px; pointer-events: none; transition: .3s ease; }
 .toast.visible { opacity: 1; transform: translate(-50%, 0); }
@@ -169,6 +174,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
   .tool-button { padding-inline: 9px; }
   .tool-button .tool-icon { display: none; }
   .reply-panel { left: 4%; right: 4%; bottom: 70px; }
+  .reply-panel.inline { left: 8%; right: 3%; }
 }
 
 @media (max-height: 650px) and (orientation: landscape) {

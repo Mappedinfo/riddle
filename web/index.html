@@ -72,6 +72,9 @@
           <label>API base URL<input id="baseUrlInput" type="url" inputmode="url" placeholder="https://api.openai.com/v1" required /></label>
           <label>Vision model<input id="modelInput" type="text" placeholder="gpt-4o-mini" required /></label>
           <label class="switch-row"><span><strong>Submit after resting the pen</strong><small>Wait 2.8 seconds after the final stroke</small></span><input id="autoSubmitInput" type="checkbox" checked /></label>
+          <label class="switch-row"><span><strong>Let the ink disappear</strong><small>Fade submitted handwriting before the reply</small></span><input id="fadeInkInput" type="checkbox" checked /></label>
+          <label class="switch-row"><span><strong>Write directly on the page</strong><small>Remove the reply card and place the answer below your ink</small></span><input id="inlineReplyInput" type="checkbox" checked /></label>
+          <label class="font-row"><span>Reply font</span><select id="replyFontInput"><option value="script">Dancing Script</option><option value="comic">Comic Neue</option><option value="book">Book serif</option><option value="typewriter">Typewriter</option></select></label>
           <p class="security-note">For personal use only: a browser-held API key can be inspected by anyone with access to this device. Production deployments should use a server-side proxy.</p>
           <div class="sheet-actions"><button class="secondary-button" value="cancel">Cancel</button><button id="saveSettingsButton" class="primary-button" value="default">Save settings</button></div>
         </form>

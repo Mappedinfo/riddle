@@ -1,4 +1,5 @@
 import "./style.css";
+import "@fontsource/comic-neue/400.css";
 
 declare const __MANAGED_ORACLE__: boolean;
 declare const __ORACLE_SUPPORTS_VISION__: boolean;
@@ -7,6 +8,7 @@ declare const __DEFAULT_ORACLE_URL__: string;
 declare const __DEFAULT_ORACLE_MODEL__: string;
 
 type Tool = "pen" | "eraser";
+type ReplyFont = "script" | "comic" | "book" | "typewriter";
 
 interface InkPoint {
   x: number;
@@ -38,6 +40,9 @@ interface OracleSettings {
   baseUrl: string;
   model: string;
   autoSubmit: boolean;
+  fadeInk: boolean;
+  inlineReply: boolean;
+  replyFont: ReplyFont;
 }
 
 interface OracleAnswer {
@@ -93,6 +98,9 @@ let penRecentlyActiveUntil = 0;
 let revealTimer: number | undefined;
 let installPrompt: InstallPromptEvent | null = null;
 let settings = loadSettings();
+let drawingRevision = 0;
+let committedRevision = 0;
+let lastReplyStrokes: Stroke[] = [];
 const managedOracle = __MANAGED_ORACLE__;
 const oracleSupportsVision = __ORACLE_SUPPORTS_VISION__;
 
@@ -102,6 +110,9 @@ function loadSettings(): OracleSettings {
     baseUrl: __DEFAULT_ORACLE_URL__,
     model: __DEFAULT_ORACLE_MODEL__,
     autoSubmit: true,
+    fadeInk: true,
+    inlineReply: true,
+    replyFont: "script",
   };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") };
@@ -247,6 +258,7 @@ function startPointer(event: PointerEvent): void {
   }
   currentStroke = { id: crypto.randomUUID(), pointerType: event.pointerType, points: [pointFromEvent(event)] };
   strokes.push(currentStroke);
+  drawingRevision += 1;
   updateTelemetry(event);
   renderInk();
 }
@@ -277,11 +289,13 @@ function endPointer(event: PointerEvent): void {
 function eraseAt(point: InkPoint): void {
   const rect = canvas.getBoundingClientRect();
   const radius = 24;
-  strokes = strokes.filter((stroke) => !stroke.points.some((candidate) => {
+  const remaining = strokes.filter((stroke) => !stroke.points.some((candidate) => {
     const dx = (candidate.x - point.x) * rect.width;
     const dy = (candidate.y - point.y) * rect.height;
     return dx * dx + dy * dy < radius * radius;
   }));
+  if (remaining.length !== strokes.length) drawingRevision += 1;
+  strokes = remaining;
   renderInk();
 }
 
@@ -294,7 +308,7 @@ function updateTelemetry(event: PointerEvent): void {
 
 function scheduleCommit(): void {
   window.clearTimeout(idleTimer);
-  if (!settings.autoSubmit || !strokes.length || isThinking) return;
+  if (!settings.autoSubmit || !strokes.length || isThinking || drawingRevision === committedRevision) return;
   pageStatus.textContent = "Rest the pen — the page is listening.";
   idleTimer = window.setTimeout(() => void commitPage(), IDLE_DELAY);
 }
@@ -388,23 +402,29 @@ async function commitPage(): Promise<void> {
   isThinking = true;
   updateDrawingState();
   const committed = structuredClone(strokes);
+  const submittedRevision = drawingRevision;
   const image = exportPage(committed);
   thinkingState.classList.add("visible");
-  canvasFrame.classList.add("drinking");
-  pageStatus.textContent = "The page is drinking your ink.";
-  await wait(760);
-  strokes = [];
-  renderInk();
-  canvasFrame.classList.remove("drinking");
+  if (settings.fadeInk) {
+    canvasFrame.classList.add("drinking");
+    pageStatus.textContent = "The page is drinking your ink.";
+    await wait(760);
+    strokes = [];
+    renderInk();
+    canvasFrame.classList.remove("drinking");
+  } else {
+    pageStatus.textContent = "The diary is considering the ink before it.";
+  }
   try {
     const answer = await askOracle(image, confirmedTranscript || "");
     const entry: DiaryEntry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), transcript: answer.transcript, reply: answer.reply, strokes: committed };
     await saveEntry(entry);
     await saveDraft();
     await refreshMemory();
+    committedRevision = submittedRevision;
     thinkingState.classList.remove("visible");
     pageStatus.textContent = "The diary has answered.";
-    revealReply(answer.reply);
+    revealReply(answer.reply, committed);
   } catch (error) {
     strokes = committed;
     renderInk();
@@ -419,8 +439,10 @@ async function commitPage(): Promise<void> {
   }
 }
 
-function revealReply(text: string): void {
+function revealReply(text: string, source: Stroke[]): void {
   window.clearInterval(revealTimer);
+  lastReplyStrokes = source;
+  applyReplyPresentation();
   replyText.textContent = "";
   replyPanel.classList.add("visible");
   const words = text.split(/\s+/);
@@ -436,6 +458,25 @@ function hideReply(): void {
   window.clearInterval(revealTimer);
   replyPanel.classList.remove("visible");
   replyText.textContent = "";
+}
+
+function applyReplyPresentation(): void {
+  const fonts: Record<ReplyFont, string> = {
+    script: '"Dancing Script", cursive',
+    comic: '"Comic Neue", "Comic Sans MS", cursive',
+    book: '"Iowan Old Style", "Palatino Linotype", serif',
+    typewriter: '"American Typewriter", "Courier New", monospace',
+  };
+  document.documentElement.style.setProperty("--reply-font", fonts[settings.replyFont]);
+  replyPanel.classList.toggle("inline", settings.inlineReply);
+  if (settings.inlineReply && lastReplyStrokes.length) {
+    const lastInk = lastReplyStrokes.reduce((maximum, stroke) => stroke.points.reduce((strokeMaximum, point) => Math.max(strokeMaximum, point.y), maximum), 0);
+    replyPanel.style.top = `${Math.min(72, Math.max(34, 24 + lastInk * 54))}%`;
+    replyPanel.style.bottom = "auto";
+  } else {
+    replyPanel.style.removeProperty("top");
+    replyPanel.style.removeProperty("bottom");
+  }
 }
 
 async function refreshMemory(): Promise<void> {
@@ -486,6 +527,9 @@ function populateSettings(): void {
   modelInput.disabled = managedOracle;
   $("#managedProviderNote").classList.toggle("hidden", !managedOracle);
   ($("#autoSubmitInput") as HTMLInputElement).checked = settings.autoSubmit;
+  ($("#fadeInkInput") as HTMLInputElement).checked = settings.fadeInk;
+  ($("#inlineReplyInput") as HTMLInputElement).checked = settings.inlineReply;
+  ($("#replyFontInput") as HTMLSelectElement).value = settings.replyFont;
 }
 
 function saveSettings(): void {
@@ -494,8 +538,12 @@ function saveSettings(): void {
     baseUrl: managedOracle ? "" : ($("#baseUrlInput") as HTMLInputElement).value,
     model: managedOracle ? __DEFAULT_ORACLE_MODEL__ : ($("#modelInput") as HTMLInputElement).value,
     autoSubmit: ($("#autoSubmitInput") as HTMLInputElement).checked,
+    fadeInk: ($("#fadeInkInput") as HTMLInputElement).checked,
+    inlineReply: ($("#inlineReplyInput") as HTMLInputElement).checked,
+    replyFont: ($("#replyFontInput") as HTMLSelectElement).value as ReplyFont,
   };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  applyReplyPresentation();
   showToast("Oracle settings saved on this device.");
   scheduleCommit();
 }
@@ -525,6 +573,7 @@ function bindEvents(): void {
   document.querySelectorAll<HTMLButtonElement>("[data-tool]").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool as Tool)));
   undoButton.addEventListener("click", () => {
     strokes.pop();
+    drawingRevision += 1;
     renderInk();
     void saveDraft();
     scheduleCommit();
@@ -532,6 +581,8 @@ function bindEvents(): void {
   clearButton.addEventListener("click", () => {
     window.clearTimeout(idleTimer);
     strokes = [];
+    drawingRevision += 1;
+    committedRevision = drawingRevision;
     hideReply();
     renderInk();
     void saveDraft();
@@ -577,6 +628,8 @@ async function start(): Promise<void> {
   bindEvents();
   updateConnection();
   strokes = await loadDraft().catch(() => []);
+  committedRevision = drawingRevision;
+  applyReplyPresentation();
   await refreshMemory().catch(() => undefined);
   requestAnimationFrame(resizeCanvas);
   if ("serviceWorker" in navigator) {

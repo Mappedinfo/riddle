@@ -12,6 +12,9 @@ desktop browsers.
 - touch suppression while a pen is active to reduce palm marks;
 - 2.8-second idle submission to an OpenAI-compatible vision endpoint;
 - progressive handwritten replies;
+- optional ink persistence so earlier handwriting stays visible as context;
+- replies rendered directly on the paper or inside the original reply card;
+- switchable Script, Comic Neue, book, and typewriter reply faces;
 - local draft and up to 400 remembered pages in IndexedDB;
 - installable PWA shell with offline access to saved pages.
 
