@@ -1,29 +1,130 @@
-# riddle — the diary of Tom Riddle, for the reMarkable Paper Pro
+# Riddle — an AI diary written in ink
 
-Write on the page with your pen. After a pause, the diary **drinks your ink** —
-your words fade into the paper — the page thinks for a moment, and an answer
-writes itself back in a flowing hand, stroke by stroke, then fades away.
+Write on the page with a pen. After a pause, the diary reads the handwriting,
+considers the conversation, and writes an answer back onto the paper. There is
+no conventional chat timeline: the page itself is the interface.
 
-No screen glow, no keyboard, no chat UI. Just ink appearing on paper.
+> [!IMPORTANT]
+> This repository is a fork and continuation of
+> [Maxime Rivest's original Riddle](https://github.com/MaximeRivest/riddle),
+> the reMarkable Paper Pro diary shown in the
+> [original demo](https://x.com/MaximeRivest). The concept and original
+> reMarkable implementation come from upstream. This fork preserves that work
+> while adding a Pencil-first Web/PWA client, Qwen vision integration,
+> configurable paper behavior, and persistent multi-conversation memory.
 
-_This is the diary from [the demo](https://x.com/MaximeRivest)._
+## Try it
 
-## Web / PWA — current development target
+**[Open the Riddle Web PWA](https://mappedinfo.github.io/riddle/)**
 
-The actively developed cross-platform client lives in [`web/`](web/). It keeps
-the paper-first diary experience while using Pointer Events for Apple Pencil,
-other styluses, touch, and mouse input. The PWA stores the current page and
-remembered entries locally and can be installed from Safari or another modern
-browser.
+The hosted build supports drawing, local drafts, conversation management,
+offline installation, and local memory. AI replies on GitHub Pages require a
+separately deployed, authenticated oracle proxy; provider credentials are never
+embedded in the static site.
+
+On iPad, open the link in Safari and choose **Share → Add to Home Screen**. An
+Apple Pencil is recommended, but other styluses, touch, and mouse input also
+work.
+
+## What this fork adds
+
+- **Pencil-first Web/PWA client.** Pointer Events, pressure and tilt data,
+  coalesced samples, palm-touch suppression, erasing, undo, and automatic
+  submission after 2.8 seconds of rest.
+- **Reliable iPad interaction.** The writing surface suppresses Safari text
+  selection, callouts, and page gestures that would otherwise capture Apple
+  Pencil input.
+- **A more believable paper experience.** Keep or dissolve the user's ink,
+  place answers directly on the paper or in a reply card, and switch among
+  Script, Comic Neue, book, and typewriter faces.
+- **Vision-first Qwen oracle.** The local proxy sends the rendered handwritten
+  page to `qwen3.8-max` through DashScope's OpenAI-compatible API. DeepSeek is
+  retained as a text-only fallback.
+- **Real conversation continuity.** Create, switch, resume, and delete local
+  conversations; restore earlier strokes and replies; and choose a 4, 8, 16,
+  or 32-turn context window.
+- **Local-first persistence.** Drafts, pages, replies, settings, and up to 400
+  remembered entries are stored in IndexedDB. The PWA shell remains available
+  offline.
+- **Static deployment.** A GitHub Actions workflow builds and publishes the
+  PWA to GitHub Pages without committing or exposing an API key.
+
+## Clients and project status
+
+| Client | Status | Best for |
+|---|---|---|
+| [`web/`](web/) | **Primary development target** | iPad + Apple Pencil, Android tablets, and desktop browsers |
+| [`riddle/`](riddle/) + [`quill/`](quill/) | Preserved and supported | Native reMarkable Paper Pro e-ink takeover |
+| Native iPad prototype | Experimental, not the current mainline | Exploring PencilKit/Vision-specific behavior |
+
+The Web client is the most accessible MVP: it needs no App Store review, can be
+installed like an app, and keeps the original paper-first interaction. The
+reMarkable client remains the deepest hardware implementation and the origin of
+the project.
+
+## Web quick start
+
+Requirements: Node.js 20.19+ (or 22.12+) and a modern browser.
 
 ```sh
 cd web
 npm install
+cp .env.example .env
 npm run dev
 ```
 
-The original reMarkable implementation and the experimental native iPad port
-remain as separate platform clients.
+Open <http://127.0.0.1:5173>. For iPad testing on a trusted local network, run
+`npm run dev:lan`, open the computer's LAN address in Safari, and stop the
+server when testing is finished.
+
+The preferred oracle configuration is:
+
+```dotenv
+QWEN_API_URL_PAY=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN_AI_KEY_PAY=your-key
+QWEN_API_MODEL=qwen3.8-max
+```
+
+The Vite development server and `npm run start` expose a same-origin
+`/api/oracle` route, so the key stays outside browser code. The legacy
+`QWEN_API_URL` / `QWEN_AI_KEY` Token Plan variables and the
+`DEEPSEEK_API_URL` / `DEEPSEEK_API_KEY` / `DEEPSEEK_API_MODEL` text fallback
+remain supported. See [`web/README.md`](web/README.md) for the complete runtime
+and deployment notes.
+
+### GitHub Pages and public AI
+
+GitHub Pages can host the static PWA, but it cannot safely hold a provider key
+or run the local Node proxy. To enable replies in the public demo, configure the
+repository variable `RIDDLE_ORACLE_PROXY_URL` with a CORS-enabled HTTPS proxy
+that has authentication, origin checks, and rate limits. Without that proxy,
+the hosted app still works as an installable local drawing and memory app.
+
+```sh
+cd web
+npm run build:pages
+```
+
+## How the clients fit together
+
+```text
+Apple Pencil / stylus / pen
+          │
+          ├── Web Pointer Events ──► Canvas page ──► local oracle proxy
+          │                                │               │
+          │                                │               └──► qwen3.8-max vision
+          │                                └──► IndexedDB conversations + memory
+          │
+          └── reMarkable evdev ──► Rust ink surface ──► HTTP or resident pi oracle
+                                         │
+                                         ├── qtfb window
+                                         └── quill e-ink takeover
+```
+
+## reMarkable Paper Pro client
+
+The sections below document the original hardware-oriented client retained in
+this fork.
 
 ### 🪄 New to this? Start here
 
@@ -254,8 +355,14 @@ riddle dies uncleanly. If anything wedges:
 The reply hand is [Dancing Script](https://github.com/googlefonts/DancingScript)
 (SIL OFL 1.1 — see `riddle/fonts/OFL.txt`).
 
-## License
+## Credits and license
 
-MIT for everything in this repository (see `LICENSE`). The vendor libraries it
-interposes (`libqsgepaper.so`, Qt) are **not** included and must come from
-your own device/SDK.
+Riddle was created by [Maxime Rivest](https://github.com/MaximeRivest). This
+fork is maintained by [Mappedinfo](https://github.com/Mappedinfo) and builds on
+the upstream concept, reMarkable implementation, handwriting animation, and
+memory design. Please retain that attribution when redistributing derived work.
+
+The repository is licensed under MIT (see [`LICENSE`](LICENSE)). The vendor
+libraries used by the reMarkable takeover client (`libqsgepaper.so`, Qt) are
+**not** included and must come from your own device or SDK. Bundled fonts retain
+their respective licenses.
