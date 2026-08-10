@@ -66,6 +66,7 @@ const context = canvas.getContext("2d", { alpha: true }) as CanvasRenderingConte
 if (!context) throw new Error("Canvas 2D is unavailable");
 
 const canvasFrame = $("#canvasFrame") as HTMLElement;
+const diaryPage = $(".page") as HTMLElement;
 const emptyHint = $("#emptyHint") as HTMLElement;
 const thinkingState = $("#thinkingState") as HTMLElement;
 const telemetry = $("#penTelemetry") as HTMLElement;
@@ -565,11 +566,21 @@ function wait(ms: number): Promise<void> {
 }
 
 function bindEvents(): void {
+  const preventNativeCanvasGesture = (event: Event) => event.preventDefault();
   canvas.addEventListener("pointerdown", startPointer);
   canvas.addEventListener("pointermove", movePointer);
   canvas.addEventListener("pointerup", endPointer);
   canvas.addEventListener("pointercancel", endPointer);
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+  canvas.addEventListener("touchstart", preventNativeCanvasGesture, { passive: false });
+  canvas.addEventListener("touchmove", preventNativeCanvasGesture, { passive: false });
+  canvas.addEventListener("gesturestart", preventNativeCanvasGesture);
+  diaryPage.addEventListener("selectstart", preventNativeCanvasGesture);
+  diaryPage.addEventListener("dragstart", preventNativeCanvasGesture);
+  document.addEventListener("selectionchange", () => {
+    const selection = window.getSelection();
+    if (selection?.anchorNode && diaryPage.contains(selection.anchorNode)) selection.removeAllRanges();
+  });
   document.querySelectorAll<HTMLButtonElement>("[data-tool]").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool as Tool)));
   undoButton.addEventListener("click", () => {
     strokes.pop();

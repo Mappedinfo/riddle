@@ -77,7 +77,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
 .binding { position: absolute; z-index: 3; left: 23px; top: 9%; bottom: 9%; width: 35px; display: flex; flex-direction: column; justify-content: space-around; }
 .binding span { width: 44px; height: 8px; border-radius: 999px; background: linear-gradient(#d2a561, #6e4c28 45%, #ddb675 52%, #6b4827); box-shadow: 0 2px 4px #100b08; transform: rotate(-2deg); }
 
-.page { height: 100%; min-height: 0; position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 26px 36px 18px 52px; overflow: hidden; border-radius: 2px 11px 11px 2px; background:
+.page { height: 100%; min-height: 0; position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 26px 36px 18px 52px; overflow: hidden; border-radius: 2px 11px 11px 2px; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; background:
   linear-gradient(90deg, rgba(84,61,31,.14), transparent 4%, transparent 96%, rgba(84,61,31,.11)),
   repeating-linear-gradient(0deg, transparent 0 31px, var(--line) 31px 32px),
   radial-gradient(circle at 62% 28%, #faf7ed, transparent 52%), var(--paper);
@@ -93,7 +93,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--brass); out
 .pen-telemetry.active .pen-dot { border-color: var(--red); background: var(--red); box-shadow: 0 0 0 4px rgba(126,47,43,.1); }
 
 .canvas-frame { min-height: 0; position: relative; margin: 8px 0 0; overflow: hidden; }
-#inkCanvas { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; transition: opacity .7s ease, filter .7s ease; }
+#inkCanvas { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-user-drag: none; -webkit-tap-highlight-color: transparent; cursor: crosshair; transition: opacity .7s ease, filter .7s ease; }
 #inkCanvas.eraser-active { cursor: cell; }
 .canvas-frame.drinking #inkCanvas { opacity: 0; filter: blur(3px); }
 .margin-line { position: absolute; z-index: 1; top: 0; bottom: 0; left: 6%; width: 1px; background: rgba(126,47,43,.22); }
