@@ -8,6 +8,23 @@ No screen glow, no keyboard, no chat UI. Just ink appearing on paper.
 
 _This is the diary from [the demo](https://x.com/MaximeRivest)._
 
+## Web / PWA — current development target
+
+The actively developed cross-platform client lives in [`web/`](web/). It keeps
+the paper-first diary experience while using Pointer Events for Apple Pencil,
+other styluses, touch, and mouse input. The PWA stores the current page and
+remembered entries locally and can be installed from Safari or another modern
+browser.
+
+```sh
+cd web
+npm install
+npm run dev
+```
+
+The original reMarkable implementation and the experimental native iPad port
+remain as separate platform clients.
+
 ### 🪄 New to this? Start here
 
 You need a **reMarkable Paper Pro** in developer mode with a launcher installed.

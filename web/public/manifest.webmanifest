@@ -1,0 +1,19 @@
+{
+  "name": "The Diary — Riddle",
+  "short_name": "Riddle",
+  "description": "A private, paper-first diary for Pencil and stylus input.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#17130f",
+  "theme_color": "#17130f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

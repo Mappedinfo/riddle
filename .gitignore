@@ -5,6 +5,10 @@ quill/vendor/
 
 # never commit a real API key
 riddle/oracle.env
+ipad/.env
+web/node_modules/
+web/dist/
+.env
 oracle.env
 riddle/dist/
 drawlab/dist/
