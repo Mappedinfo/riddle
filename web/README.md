@@ -34,8 +34,9 @@ for `getCoalescedEvents()`, `getPredictedEvents()`, `altitudeAngle`, and
 
 ## Oracle configuration
 
-The repository-local `.env` uses `QWEN_API_URL`, `QWEN_AI_KEY`, and
-`QWEN_API_MODEL=qwen3.8-max`. Both the Vite development server and
+The repository-local `.env` prefers `QWEN_API_URL_PAY`, `QWEN_AI_KEY_PAY`, and
+`QWEN_API_MODEL=qwen3.8-max`. The older `QWEN_API_URL` / `QWEN_AI_KEY` Token
+Plan pair remains a fallback. Both the Vite development server and
 `npm run start` forward `/api/oracle` to Qwen without exposing the key to
 browser code. Qwen receives the rendered handwritten page as an OpenAI-style
 `image_url` data URL and returns both its transcription and reply.

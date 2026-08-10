@@ -8,8 +8,8 @@ const dist = join(root, "dist");
 const env = await loadEnv(join(root, ".env"));
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "127.0.0.1";
-const apiBase = (process.env.QWEN_API_URL || env.QWEN_API_URL || process.env.DEEPSEEK_API_URL || env.DEEPSEEK_API_URL || "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1").replace(/\/+$/, "");
-const apiKey = process.env.QWEN_AI_KEY || env.QWEN_AI_KEY || process.env.DEEPSEEK_API_KEY || env.DEEPSEEK_API_KEY || "";
+const apiBase = (process.env.QWEN_API_URL_PAY || env.QWEN_API_URL_PAY || process.env.QWEN_API_URL || env.QWEN_API_URL || process.env.DEEPSEEK_API_URL || env.DEEPSEEK_API_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1").replace(/\/+$/, "");
+const apiKey = process.env.QWEN_AI_KEY_PAY || env.QWEN_AI_KEY_PAY || process.env.QWEN_AI_KEY || env.QWEN_AI_KEY || process.env.DEEPSEEK_API_KEY || env.DEEPSEEK_API_KEY || "";
 const model = process.env.QWEN_API_MODEL || env.QWEN_API_MODEL || process.env.DEEPSEEK_API_MODEL || env.DEEPSEEK_API_MODEL || "qwen3.8-max";
 
 const mimeTypes = {
